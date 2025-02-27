@@ -9,30 +9,38 @@
   <style>
     body {
       font-family: 'Comic Neue', cursive;
-      margin: 20px;
+      margin: 10px;
       text-align: center;
       touch-action: manipulation;
       background-color: #0066B3;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
     .table-container {
       position: relative;
       display: inline-block;
       margin: 0 auto;
       padding-bottom: 80px;
+      max-width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
     }
     table {
       border-collapse: separate;
-      border-spacing: 8px;
+      border-spacing: 6px;
       user-select: none;
-      padding: 10px;
+      padding: 8px;
+      margin: 0 auto;
     }
     td {
-      width: 48px;
-      height: 48px;
+      width: 42px;
+      height: 42px;
       text-align: center;
       vertical-align: middle;
       cursor: pointer;
-      font-size: 1.3em;
+      font-size: 1.2em;
       transition: all 0.2s ease;
       position: relative;
     }
@@ -54,11 +62,47 @@
       border-color: rgba(255, 255, 255, 0.4);
       box-shadow: 0 4px 8px rgba(0,0,0,0.3);
     }
-    @media (max-width: 600px) {
+    @media (max-width: 480px) {
+      body {
+        margin: 5px;
+      }
+      table {
+        border-spacing: 4px;
+        padding: 4px;
+      }
       td {
-        width: 38px;
-        height: 38px;
-        font-size: 1.1em;
+        width: 32px;
+        height: 32px;
+        font-size: 1em;
+      }
+      .header-cell {
+        font-size: 1.4em !important;
+      }
+      #score {
+        font-size: 2.5em !important;
+        margin: 10px 0 !important;
+      }
+      #floatingInput {
+        font-size: 1.3em !important;
+        padding: 8px 12px !important;
+      }
+      #guessInput {
+        width: 60px !important;
+        height: 40px !important;
+      }
+      #submitGuess {
+        width: 40px !important;
+        height: 40px !important;
+      }
+    }
+    @media (max-width: 360px) {
+      td {
+        width: 28px;
+        height: 28px;
+        font-size: 0.9em;
+      }
+      .header-cell {
+        font-size: 1.2em !important;
       }
     }
     .highlight {
@@ -105,11 +149,11 @@
       border-radius: 16px;
       box-shadow: 0 4px 16px rgba(0,0,0,0.15);
       z-index: 100;
-      left: 0;
-      transform: translateX(-50%);
       border: 3px solid #2196F3;
       white-space: nowrap;
       font-size: 1.6em;
+      max-width: calc(100vw - 40px);
+      box-sizing: border-box;
     }
     #guessInput {
       width: 70px;
@@ -366,13 +410,43 @@
     if (!lastCell) return;
     
     const cellRect = lastCell.getBoundingClientRect();
-    const containerRect = tableContainer.getBoundingClientRect();
-    
-    const centerX = cellRect.left + (cellRect.width / 2) - containerRect.left;
+    const inputRect = floatingInput.getBoundingClientRect();
+    const windowWidth = window.innerWidth;
+    const windowHeight = window.innerHeight;
     
     floatingInput.style.display = 'block';
-    floatingInput.style.left = `${centerX}px`;
-    floatingInput.style.top = `${cellRect.bottom - containerRect.top + 10}px`;
+    
+    // Calculate vertical position - directly below the cell
+    let top = cellRect.bottom + 2; // Small 2px gap
+    
+    // Calculate horizontal position - centered with the cell
+    let left = cellRect.left + (cellRect.width / 2);
+    
+    // Get the input's dimensions after displaying it
+    const inputWidth = floatingInput.offsetWidth;
+    const inputHeight = floatingInput.offsetHeight;
+    
+    // Adjust horizontal position if it would go off-screen
+    const minLeft = 10;
+    const maxLeft = windowWidth - 10;
+    
+    if (left - (inputWidth / 2) < minLeft) {
+      left = minLeft + (inputWidth / 2);
+    } else if (left + (inputWidth / 2) > maxLeft) {
+      left = maxLeft - (inputWidth / 2);
+    }
+    
+    // Adjust vertical position if it would go off-screen
+    if (top + inputHeight > windowHeight) {
+      // Position above the cell if it would go off the bottom
+      top = cellRect.top - inputHeight - 2;
+    }
+    
+    // Apply the calculated position
+    floatingInput.style.position = 'fixed';
+    floatingInput.style.left = `${left}px`;
+    floatingInput.style.top = `${top}px`;
+    floatingInput.style.transform = 'translateX(-50%)';
     
     // Update the problem text
     floatingInput.querySelector('.problem').textContent = `${selectedRow} × ${selectedCol} =`;
