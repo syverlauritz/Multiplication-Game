@@ -41,7 +41,15 @@
       border-radius: 8px;
       background: rgba(255, 255, 255, 0.1);
     }
-    td:not(.header-cell):hover {
+    td.completed {
+      cursor: not-allowed;
+      color: rgba(255, 255, 255, 0.4);
+      font-size: 1.2em;
+    }
+    td.completed::before {
+      content: attr(data-result);
+    }
+    td:not(.header-cell):not(.completed):hover {
       transform: scale(1.1) translateY(-2px);
       border-color: rgba(255, 255, 255, 0.4);
       box-shadow: 0 4px 8px rgba(0,0,0,0.3);
@@ -186,12 +194,72 @@
       font-size: 1.8em;
       text-shadow: 2px 2px 0 rgba(0,0,0,0.2);
     }
+    #gameOver {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: #0066B3;
+      z-index: 2000;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 40px;
+    }
+    #finalScore {
+      font-size: 6em;
+      color: #FFD900;
+      font-weight: bold;
+      text-shadow: 
+        4px 4px 0 rgba(0,0,0,0.2),
+        -2px -2px 0 rgba(255,255,255,0.3);
+      opacity: 0;
+      transform: scale(0.5);
+      transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    #finalScore.show {
+      opacity: 1;
+      transform: scale(1);
+    }
+    #restartButton {
+      background: none;
+      border: none;
+      font-size: 3em;
+      cursor: pointer;
+      color: rgba(255,255,255,0.8);
+      transition: all 0.2s ease;
+      padding: 15px 23px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.1);
+      width: 80px;
+      height: 80px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+    }
+    #restartButton:hover {
+      transform: scale(1.1) rotate(-180deg);
+      background: rgba(255,255,255,0.2);
+    }
+    .final-score-label {
+      font-size: 2em;
+      color: rgba(255,255,255,0.6);
+      margin-bottom: -20px;
+    }
   </style>
 </head>
 <body>
 
 <div id="score">0</div>
 <div id="message"></div>
+<div id="gameOver">
+  <div class="final-score-label">Final Score</div>
+  <div id="finalScore">0</div>
+  <button id="restartButton">↺</button>
+</div>
 
 <div class="table-container">
   <table id="multiplicationTable"></table>
@@ -207,6 +275,9 @@
 <audio id="failureSound" preload="auto">
   <source src="audio/mixkit-fail-drum-and-xylophone-568.wav" type="audio/wav">
 </audio>
+<audio id="applauseSound" preload="auto">
+  <source src="audio/mixkit-animated-small-group-applause-523.wav" type="audio/wav">
+</audio>
 
 <script>
   const rows = 10;
@@ -221,10 +292,15 @@
   const floatingInput = document.getElementById('floatingInput');
   const successSound = document.getElementById('successSound');
   const failureSound = document.getElementById('failureSound');
+  const gameOverScreen = document.getElementById('gameOver');
+  const finalScoreDisplay = document.getElementById('finalScore');
+  const restartButton = document.getElementById('restartButton');
+  const applauseSound = document.getElementById('applauseSound');
 
   let score = 0;
   let currentRow = null;
   let currentCol = null;
+  let completedCells = new Set(); // Track completed cells
 
   const characters = [
     'img/elmo.png',
@@ -297,8 +373,11 @@
   // Handle both click and touch events
   function handleCellSelection(e) {
     const target = e.target;
-    if (target && target.nodeName === 'TD' && target.hasAttribute('data-row')) {
-      e.preventDefault(); // Prevent zoom on double-tap
+    if (target && 
+        target.nodeName === 'TD' && 
+        target.hasAttribute('data-row') &&
+        !target.classList.contains('completed')) {  // Don't select completed cells
+      e.preventDefault();
       currentRow = parseInt(target.getAttribute('data-row'));
       currentCol = parseInt(target.getAttribute('data-col'));
       
@@ -357,6 +436,74 @@
     }, 1500);
   }
 
+  function showGameOver() {
+    gameOverScreen.style.display = 'flex';
+    
+    // Add a slight delay for the screen to appear
+    setTimeout(() => {
+      finalScoreDisplay.textContent = score;
+      finalScoreDisplay.classList.add('show');
+      
+      // Play applause sound immediately when score shows
+      applauseSound.currentTime = 0;
+      applauseSound.volume = 1;
+      applauseSound.play().catch(e => console.log('Audio play failed:', e));
+      
+      // Trigger confetti cannon effect
+      const duration = 1500;
+      const animationEnd = Date.now() + duration;
+      const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 2100 };
+
+      function randomInRange(min, max) {
+        return Math.random() * (max - min) + min;
+      }
+
+      const interval = setInterval(function() {
+        const timeLeft = animationEnd - Date.now();
+
+        if (timeLeft <= 0) {
+          return clearInterval(interval);
+        }
+
+        const particleCount = 50 * (timeLeft / duration);
+        
+        // Confetti from both sides
+        confetti(Object.assign({}, defaults, { 
+          particleCount,
+          origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 },
+          colors: ['#FFD700', '#FFA500', '#FF69B4']
+        }));
+        confetti(Object.assign({}, defaults, { 
+          particleCount,
+          origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 },
+          colors: ['#87CEEB', '#98FB98', '#FFD700']
+        }));
+      }, 250);
+
+    }, 100);
+  }
+
+  function restartGame() {
+    score = 0;
+    scoreDisplay.textContent = '0';
+    completedCells.clear();
+    
+    // Clear all completed cells
+    const allCells = table.querySelectorAll('td');
+    allCells.forEach(cell => {
+      cell.classList.remove('completed', 'highlight');
+    });
+    
+    // Hide game over screen
+    gameOverScreen.style.display = 'none';
+    finalScoreDisplay.classList.remove('show');
+    
+    // Reset current state
+    currentRow = null;
+    currentCol = null;
+    floatingInput.style.display = 'none';
+  }
+
   function checkGuess() {
     if (currentRow === null || currentCol === null) return;
     
@@ -366,9 +513,21 @@
     if (userGuess === correctAnswer) {
       score += correctAnswer;
       showFeedback(true);
+      
+      // Mark the clicked cell as completed and show the result
+      const cell = table.querySelector(`td[data-row="${currentRow}"][data-col="${currentCol}"]`);
+      if (cell) {
+        cell.setAttribute('data-result', correctAnswer);
+        cell.classList.add('completed');
+        completedCells.add(`${currentRow},${currentCol}`);
+      }
     } else {
-      score = 0;
       showFeedback(false);
+      
+      // Show game over after the failure animation
+      setTimeout(() => {
+        showGameOver();
+      }, 1500);
     }
     
     scoreDisplay.textContent = score;
@@ -385,6 +544,8 @@
       allCells.forEach((cell) => cell.classList.remove('highlight'));
     }, 1500);
   }
+
+  restartButton.addEventListener('click', restartGame);
 
   // Hide floating input when clicking/touching outside
   document.addEventListener('click', (e) => {
