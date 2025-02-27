@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Multiplication Game</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      text-align: center;
+    }
+    #toggleContainer {
+      margin: 10px 0;
+    }
+    table {
+      margin: 0 auto;
+      border-collapse: collapse;
+      user-select: none;
+    }
+    td {
+      width: 40px;
+      height: 40px;
+      border: 1px solid #ccc;
+      text-align: center;
+      vertical-align: middle;
+      cursor: pointer;
+    }
+    .highlight {
+      background-color: #b2ebf2;
+    }
+    #gameControls {
+      margin: 20px auto;
+      max-width: 300px;
+    }
+    #guessInput {
+      width: 60px;
+      font-size: 1.2em;
+      margin: 0 10px;
+      padding: 5px;
+    }
+    #submitGuess {
+      padding: 5px 15px;
+      font-size: 1.1em;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    #submitGuess:disabled {
+      background-color: #cccccc;
+      cursor: not-allowed;
+    }
+    #score {
+      font-size: 1.5em;
+      margin: 20px 0;
+      font-weight: bold;
+      color: #2196F3;
+    }
+    #message {
+      font-size: 1.2em;
+      margin: 10px 0;
+      min-height: 1.2em;
+    }
+    .correct {
+      color: #4CAF50;
+    }
+    .incorrect {
+      color: #f44336;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Multiplication Game</h1>
+
+<div id="score">Score: 0</div>
+<div id="message"></div>
+
+<div id="gameControls">
+  <input type="number" id="guessInput" placeholder="?" disabled>
+  <button id="submitGuess" disabled>Check</button>
+</div>
+
+<table id="multiplicationTable"></table>
+
+<script>
+  // Configuration: change this if you want a different size
+  const rows = 10;
+  const cols = 10;
+
+  const table = document.getElementById('multiplicationTable');
+  const guessInput = document.getElementById('guessInput');
+  const submitGuess = document.getElementById('submitGuess');
+  const scoreDisplay = document.getElementById('score');
+  const messageDisplay = document.getElementById('message');
+
+  let score = 0;
+  let currentRow = null;
+  let currentCol = null;
+
+  // Build the table
+  // First, create header row
+  const headerRow = document.createElement('tr');
+  // Empty corner cell
+  const cornerCell = document.createElement('td');
+  cornerCell.style.backgroundColor = '#f5f5f5';
+  headerRow.appendChild(cornerCell);
+  // Add column headers (1-10)
+  for (let c = 1; c <= cols; c++) {
+    const headerCell = document.createElement('td');
+    headerCell.textContent = c;
+    headerCell.style.backgroundColor = '#f5f5f5';
+    headerCell.style.fontWeight = 'bold';
+    headerRow.appendChild(headerCell);
+  }
+  table.appendChild(headerRow);
+
+  // Build the rest of the table
+  for (let r = 1; r <= rows; r++) {
+    const rowEl = document.createElement('tr');
+    // Add row header (1-10)
+    const rowHeader = document.createElement('td');
+    rowHeader.textContent = r;
+    rowHeader.style.backgroundColor = '#f5f5f5';
+    rowHeader.style.fontWeight = 'bold';
+    rowEl.appendChild(rowHeader);
+    // Add empty cells
+    for (let c = 1; c <= cols; c++) {
+      const cellEl = document.createElement('td');
+      cellEl.setAttribute('data-row', r);
+      cellEl.setAttribute('data-col', c);
+      rowEl.appendChild(cellEl);
+    }
+    table.appendChild(rowEl);
+  }
+
+  function highlightCell(selectedRow, selectedCol) {
+    // Clear existing highlights
+    const allCells = table.querySelectorAll('td');
+    allCells.forEach((cell) => cell.classList.remove('highlight'));
+
+    // Highlight only the selected cell
+    const selectedCell = table.querySelector(`td[data-row="${selectedRow}"][data-col="${selectedCol}"]`);
+    if (selectedCell) {
+      selectedCell.classList.add('highlight');
+    }
+  }
+
+  // Handle cell selection
+  table.addEventListener('click', (e) => {
+    if (e.target && e.target.nodeName === 'TD' && e.target.hasAttribute('data-row')) {
+      currentRow = parseInt(e.target.getAttribute('data-row'));
+      currentCol = parseInt(e.target.getAttribute('data-col'));
+      
+      highlightCell(currentRow, currentCol);
+      
+      // Enable input and button
+      guessInput.disabled = false;
+      submitGuess.disabled = false;
+      guessInput.value = '';
+      guessInput.focus();
+      
+      messageDisplay.textContent = `What is ${currentRow} × ${currentCol}?`;
+      messageDisplay.className = '';
+    }
+  });
+
+  // Handle guess submission
+  submitGuess.addEventListener('click', checkGuess);
+  guessInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      checkGuess();
+    }
+  });
+
+  function checkGuess() {
+    if (currentRow === null || currentCol === null) return;
+    
+    const correctAnswer = currentRow * currentCol;
+    const userGuess = parseInt(guessInput.value);
+    
+    if (userGuess === correctAnswer) {
+      score += correctAnswer;
+      messageDisplay.textContent = '✓ Correct! Keep going!';
+      messageDisplay.className = 'correct';
+    } else {
+      score = 0;
+      messageDisplay.textContent = `✗ Wrong! ${currentRow} × ${currentCol} = ${correctAnswer}. Score reset!`;
+      messageDisplay.className = 'incorrect';
+    }
+    
+    scoreDisplay.textContent = `Score: ${score}`;
+    
+    // Reset for next guess
+    guessInput.value = '';
+    guessInput.disabled = true;
+    submitGuess.disabled = true;
+    currentRow = null;
+    currentCol = null;
+    
+    // Clear highlight after a short delay
+    setTimeout(() => {
+      const allCells = table.querySelectorAll('td');
+      allCells.forEach((cell) => cell.classList.remove('highlight'));
+    }, 1000);
+  }
+</script>
+
+</body>
+</html>
