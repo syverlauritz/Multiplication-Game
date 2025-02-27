@@ -262,7 +262,7 @@
 </div>
 
 <div class="table-container">
-  <table id="multiplicationTable"></table>
+<table id="multiplicationTable"></table>
   <div id="floatingInput">
     <input type="number" id="guessInput" placeholder="?" inputmode="numeric" pattern="[0-9]*">
     <button id="submitGuess">✓</button>
@@ -400,36 +400,110 @@
     }
   });
 
+  // Audio handling
+  const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+  const isiOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const useWebAudio = isSafari || isiOS;
+
+  // Initialize Web Audio only for Safari/iOS
+  const audioContext = useWebAudio ? new (window.AudioContext || window.webkitAudioContext)() : null;
+  let audioInitialized = false;
+  const audioBuffers = useWebAudio ? {
+    success: null,
+    failure: null,
+    applause: null
+  } : null;
+
+  // Function to load and decode audio file (only for Safari/iOS)
+  async function loadAudio(url) {
+    if (!useWebAudio) return null;
+    try {
+      const response = await fetch(url);
+      const arrayBuffer = await response.arrayBuffer();
+      return await audioContext.decodeAudioData(arrayBuffer);
+    } catch (error) {
+      console.log('Error loading audio:', error);
+      return null;
+    }
+  }
+
+  // Initialize audio (only for Safari/iOS)
+  async function initializeAudio() {
+    if (!useWebAudio || audioInitialized) return;
+    
+    try {
+      await audioContext.resume();
+      audioBuffers.success = await loadAudio('audio/mixkit-game-success-alert-2039.wav');
+      audioBuffers.failure = await loadAudio('audio/mixkit-fail-drum-and-xylophone-568.wav');
+      audioBuffers.applause = await loadAudio('audio/mixkit-animated-small-group-applause-523.wav');
+      audioInitialized = true;
+    } catch (error) {
+      console.log('Error initializing audio:', error);
+    }
+  }
+
+  // Function to play audio
+  function playAudio(type) {
+    if (useWebAudio) {
+      // Web Audio API for Safari/iOS
+      const buffer = audioBuffers[type];
+      if (!buffer || audioContext.state !== 'running') return;
+      
+      try {
+        const source = audioContext.createBufferSource();
+        source.buffer = buffer;
+        source.connect(audioContext.destination);
+        source.start(0);
+      } catch (error) {
+        console.log('Error playing audio:', error);
+      }
+      } else {
+      // HTML5 Audio for other browsers
+      const audio = {
+        success: successSound,
+        failure: failureSound,
+        applause: applauseSound
+      }[type];
+      
+      if (audio) {
+        audio.currentTime = 0;
+        if (type === 'applause') {
+          audio.volume = 1;
+        }
+        audio.play().catch(e => console.log('Audio play failed:', e));
+      }
+    }
+  }
+
+  // Initialize audio on first interaction for iOS
+  if (useWebAudio) {
+    document.addEventListener('touchstart', function() {
+      initializeAudio();
+    }, { once: true });
+  }
+
   function showFeedback(isSuccess) {
     if (isSuccess) {
       const characterImg = document.createElement('img');
       characterImg.src = getRandomCharacter();
       messageDisplay.textContent = '';
       messageDisplay.appendChild(characterImg);
+      playAudio('success');
     } else {
       messageDisplay.textContent = '❌';
+      playAudio('failure');
     }
     messageDisplay.className = 'message-animation';
     
     if (isSuccess) {
-      // Play success sound
-      successSound.currentTime = 0;
-      successSound.play().catch(e => console.log('Audio play failed:', e));
-      
-      // Trigger confetti
       confetti({
         particleCount: 100,
         spread: 70,
         origin: { y: 0.6 },
         colors: ['#FFD700', '#FFA500', '#FF69B4', '#87CEEB', '#98FB98']
       });
-    } else {
-      // Play failure sound
-      failureSound.currentTime = 0;
-      failureSound.play().catch(e => console.log('Audio play failed:', e));
     }
 
-    // Reset animation class after it completes
     setTimeout(() => {
       messageDisplay.className = '';
       messageDisplay.textContent = '';
@@ -439,47 +513,53 @@
   function showGameOver() {
     gameOverScreen.style.display = 'flex';
     
-    // Add a slight delay for the screen to appear
     setTimeout(() => {
       finalScoreDisplay.textContent = score;
       finalScoreDisplay.classList.add('show');
       
-      // Play applause sound immediately when score shows
-      applauseSound.currentTime = 0;
-      applauseSound.volume = 1;
-      applauseSound.play().catch(e => console.log('Audio play failed:', e));
+      playAudio('applause');
       
-      // Trigger confetti cannon effect
-      const duration = 1500;
-      const animationEnd = Date.now() + duration;
-      const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 2100 };
+      // Simple confetti burst
+      confetti({
+        particleCount: 200,
+        spread: 90,
+        origin: { y: 0.6 },
+        zIndex: 3000,
+        colors: ['#FFD700', '#FFA500', '#FF69B4', '#87CEEB', '#98FB98']
+      });
 
-      function randomInRange(min, max) {
-        return Math.random() * (max - min) + min;
-      }
-
-      const interval = setInterval(function() {
-        const timeLeft = animationEnd - Date.now();
-
-        if (timeLeft <= 0) {
-          return clearInterval(interval);
-        }
-
-        const particleCount = 50 * (timeLeft / duration);
-        
-        // Confetti from both sides
-        confetti(Object.assign({}, defaults, { 
-          particleCount,
-          origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 },
+      // Side bursts
+      setTimeout(() => {
+        // Left burst
+        confetti({
+          particleCount: 100,
+          angle: 60,
+          spread: 55,
+          origin: { x: 0, y: 0.65 },
+          zIndex: 3000,
           colors: ['#FFD700', '#FFA500', '#FF69B4']
-        }));
-        confetti(Object.assign({}, defaults, { 
-          particleCount,
-          origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 },
+        });
+        // Right burst
+        confetti({
+          particleCount: 100,
+          angle: 120,
+          spread: 55,
+          origin: { x: 1, y: 0.65 },
+          zIndex: 3000,
           colors: ['#87CEEB', '#98FB98', '#FFD700']
-        }));
-      }, 250);
+        });
+      }, 150);
 
+      // Additional bursts
+      setTimeout(() => {
+        confetti({
+          particleCount: 150,
+          spread: 100,
+          origin: { y: 0.7 },
+          zIndex: 3000,
+          colors: ['#FFD700', '#FFA500', '#FF69B4', '#87CEEB', '#98FB98']
+        });
+      }, 500);
     }, 100);
   }
 
