@@ -2,130 +2,262 @@
 <html>
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Multiplication Game</title>
+  <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
   <style>
     body {
-      font-family: Arial, sans-serif;
+      font-family: 'Comic Neue', cursive;
       margin: 20px;
       text-align: center;
+      touch-action: manipulation;
+      background-color: #0066B3;
     }
-    #toggleContainer {
-      margin: 10px 0;
+    .table-container {
+      position: relative;
+      display: inline-block;
+      margin: 0 auto;
+      padding-bottom: 80px;
     }
     table {
-      margin: 0 auto;
-      border-collapse: collapse;
+      border-collapse: separate;
+      border-spacing: 8px;
       user-select: none;
+      padding: 10px;
     }
     td {
-      width: 40px;
-      height: 40px;
-      border: 1px solid #ccc;
+      width: 48px;
+      height: 48px;
       text-align: center;
       vertical-align: middle;
       cursor: pointer;
+      font-size: 1.3em;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+    td:not(.header-cell) {
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.1);
+    }
+    td:not(.header-cell):hover {
+      transform: scale(1.1) translateY(-2px);
+      border-color: rgba(255, 255, 255, 0.4);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    }
+    @media (max-width: 600px) {
+      td {
+        width: 38px;
+        height: 38px;
+        font-size: 1.1em;
+      }
     }
     .highlight {
-      background-color: #b2ebf2;
+      background-color: #FFD900;
+      border: none;
+      border-radius: 8px;
+      box-shadow: 
+        inset -4px -4px 0 rgba(180, 100, 0, 0.8),
+        inset 4px 4px 0 rgba(255, 255, 255, 0.9),
+        6px 6px 0 rgba(0,0,0,0.3);
+      transform: translateY(-6px);
+      transition: all 0.2s ease;
     }
-    #gameControls {
-      margin: 20px auto;
-      max-width: 300px;
+    .highlight::before {
+      content: '';
+      position: absolute;
+      inset: -2px;
+      background-color: #FFD900;
+      border-radius: 8px;
+      z-index: -1;
+    }
+    .highlight::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(135deg, 
+        rgba(255,255,255,0.4) 0%,
+        rgba(255,255,255,0) 50%);
+      border-radius: 8px;
+      pointer-events: none;
+    }
+    @keyframes slide {
+      from { background-position: 0 0; }
+      to { background-position: 100px 0; }
+    }
+    #floatingInput {
+      position: absolute;
+      display: none;
+      padding: 12px;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+      z-index: 100;
+      left: 0;
+      transform: translateX(-50%);
+      border: 3px solid #2196F3;
     }
     #guessInput {
-      width: 60px;
-      font-size: 1.2em;
-      margin: 0 10px;
+      width: 70px;
+      height: 45px;
+      font-size: 1.6em;
+      text-align: center;
+      border: 3px solid #2196F3;
+      border-radius: 8px;
       padding: 5px;
+      margin-right: 8px;
+      -webkit-appearance: none;
+      font-family: 'Comic Neue', cursive;
+      background-color: #f8f9fa;
     }
     #submitGuess {
-      padding: 5px 15px;
-      font-size: 1.1em;
+      width: 45px;
+      height: 45px;
+      font-size: 1.6em;
       background-color: #4CAF50;
       color: white;
       border: none;
-      border-radius: 4px;
+      border-radius: 8px;
       cursor: pointer;
+      padding: 0;
+      -webkit-appearance: none;
+      transition: transform 0.1s ease;
+    }
+    #submitGuess:active {
+      transform: scale(0.95);
     }
     #submitGuess:disabled {
       background-color: #cccccc;
-      cursor: not-allowed;
     }
     #score {
-      font-size: 1.5em;
+      font-size: 3em;
       margin: 20px 0;
       font-weight: bold;
-      color: #2196F3;
+      color: #FFD900;
+      text-shadow: 2px 2px 0 rgba(0,0,0,0.2);
     }
     #message {
-      font-size: 1.2em;
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 8em;
       margin: 10px 0;
-      min-height: 1.2em;
+      min-height: 1em;
+      z-index: 1000;
+      pointer-events: none;
+      opacity: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
-    .correct {
-      color: #4CAF50;
+    #message img {
+      height: min(70vh, 90%);
+      width: auto;
+      filter: drop-shadow(0 0 20px rgba(0,0,0,0.2));
+      object-fit: contain;
+      transform-origin: center;
     }
-    .incorrect {
-      color: #f44336;
+    @media (max-width: 600px) {
+      #message img {
+        height: min(60vh, 80%);
+      }
+    }
+    .message-animation {
+      animation: popAndFade 1.5s ease-out forwards;
+    }
+    @keyframes popAndFade {
+      0% { transform: translate(-50%, -50%) scale(0.3) rotate(-15deg); opacity: 0; }
+      20% { transform: translate(-50%, -50%) scale(1.2) rotate(15deg); opacity: 1; }
+      40% { transform: translate(-50%, -50%) scale(0.9) rotate(-10deg); opacity: 1; }
+      60% { transform: translate(-50%, -50%) scale(1.1) rotate(10deg); opacity: 1; }
+      80% { transform: translate(-50%, -50%) scale(1) rotate(0deg); opacity: 1; }
+      100% { transform: translate(-50%, -50%) scale(1) rotate(0deg); opacity: 0; }
+    }
+    .header-cell {
+      color: #FFD900;
+      font-weight: bold;
+      font-size: 1.8em;
+      text-shadow: 2px 2px 0 rgba(0,0,0,0.2);
     }
   </style>
 </head>
 <body>
 
-<h1>Multiplication Game</h1>
-
-<div id="score">Score: 0</div>
+<div id="score">0</div>
 <div id="message"></div>
 
-<div id="gameControls">
-  <input type="number" id="guessInput" placeholder="?" disabled>
-  <button id="submitGuess" disabled>Check</button>
+<div class="table-container">
+  <table id="multiplicationTable"></table>
+  <div id="floatingInput">
+    <input type="number" id="guessInput" placeholder="?" inputmode="numeric" pattern="[0-9]*">
+    <button id="submitGuess">✓</button>
+  </div>
 </div>
 
-<table id="multiplicationTable"></table>
+<audio id="successSound" preload="auto">
+  <source src="audio/mixkit-game-success-alert-2039.wav" type="audio/wav">
+</audio>
+<audio id="failureSound" preload="auto">
+  <source src="audio/mixkit-fail-drum-and-xylophone-568.wav" type="audio/wav">
+</audio>
 
 <script>
-  // Configuration: change this if you want a different size
   const rows = 10;
   const cols = 10;
 
+  const tableContainer = document.querySelector('.table-container');
   const table = document.getElementById('multiplicationTable');
   const guessInput = document.getElementById('guessInput');
   const submitGuess = document.getElementById('submitGuess');
   const scoreDisplay = document.getElementById('score');
   const messageDisplay = document.getElementById('message');
+  const floatingInput = document.getElementById('floatingInput');
+  const successSound = document.getElementById('successSound');
+  const failureSound = document.getElementById('failureSound');
 
   let score = 0;
   let currentRow = null;
   let currentCol = null;
 
+  const characters = [
+    'img/elmo.png',
+    'img/cookiemonster.png',
+    'img/abby.png'
+  ];
+
+  function getRandomCharacter() {
+    const randomIndex = Math.floor(Math.random() * characters.length);
+    return characters[randomIndex];
+  }
+
   // Build the table
-  // First, create header row
   const headerRow = document.createElement('tr');
-  // Empty corner cell
   const cornerCell = document.createElement('td');
-  cornerCell.style.backgroundColor = '#f5f5f5';
+  cornerCell.className = 'header-cell';
   headerRow.appendChild(cornerCell);
-  // Add column headers (1-10)
+  
   for (let c = 1; c <= cols; c++) {
     const headerCell = document.createElement('td');
     headerCell.textContent = c;
-    headerCell.style.backgroundColor = '#f5f5f5';
-    headerCell.style.fontWeight = 'bold';
+    headerCell.className = 'header-cell';
     headerRow.appendChild(headerCell);
   }
   table.appendChild(headerRow);
 
-  // Build the rest of the table
   for (let r = 1; r <= rows; r++) {
     const rowEl = document.createElement('tr');
-    // Add row header (1-10)
     const rowHeader = document.createElement('td');
     rowHeader.textContent = r;
-    rowHeader.style.backgroundColor = '#f5f5f5';
-    rowHeader.style.fontWeight = 'bold';
+    rowHeader.className = 'header-cell';
     rowEl.appendChild(rowHeader);
-    // Add empty cells
+    
     for (let c = 1; c <= cols; c++) {
       const cellEl = document.createElement('td');
       cellEl.setAttribute('data-row', r);
@@ -135,44 +267,95 @@
     table.appendChild(rowEl);
   }
 
-  function highlightCell(selectedRow, selectedCol) {
-    // Clear existing highlights
+  function highlightArea(selectedRow, selectedCol) {
     const allCells = table.querySelectorAll('td');
     allCells.forEach((cell) => cell.classList.remove('highlight'));
 
-    // Highlight only the selected cell
-    const selectedCell = table.querySelector(`td[data-row="${selectedRow}"][data-col="${selectedCol}"]`);
-    if (selectedCell) {
-      selectedCell.classList.add('highlight');
+    allCells.forEach((cell) => {
+      const r = parseInt(cell.getAttribute('data-row'));
+      const c = parseInt(cell.getAttribute('data-col'));
+      if (r && c && r <= selectedRow && c <= selectedCol) {
+        cell.classList.add('highlight');
+      }
+    });
+  }
+
+  function positionFloatingInput(selectedRow, selectedCol) {
+    const lastCell = table.querySelector(`td[data-row="${selectedRow}"][data-col="${selectedCol}"]`);
+    if (!lastCell) return;
+    
+    const cellRect = lastCell.getBoundingClientRect();
+    const containerRect = tableContainer.getBoundingClientRect();
+    
+    const centerX = cellRect.left + (cellRect.width / 2) - containerRect.left;
+    
+    floatingInput.style.display = 'block';
+    floatingInput.style.left = `${centerX}px`;
+    floatingInput.style.top = `${cellRect.bottom - containerRect.top + 10}px`;
+  }
+
+  // Handle both click and touch events
+  function handleCellSelection(e) {
+    const target = e.target;
+    if (target && target.nodeName === 'TD' && target.hasAttribute('data-row')) {
+      e.preventDefault(); // Prevent zoom on double-tap
+      currentRow = parseInt(target.getAttribute('data-row'));
+      currentCol = parseInt(target.getAttribute('data-col'));
+      
+      highlightArea(currentRow, currentCol);
+      positionFloatingInput(currentRow, currentCol);
+      
+      guessInput.value = '';
+      guessInput.focus();
+      messageDisplay.textContent = '';
     }
   }
 
-  // Handle cell selection
-  table.addEventListener('click', (e) => {
-    if (e.target && e.target.nodeName === 'TD' && e.target.hasAttribute('data-row')) {
-      currentRow = parseInt(e.target.getAttribute('data-row'));
-      currentCol = parseInt(e.target.getAttribute('data-col'));
-      
-      highlightCell(currentRow, currentCol);
-      
-      // Enable input and button
-      guessInput.disabled = false;
-      submitGuess.disabled = false;
-      guessInput.value = '';
-      guessInput.focus();
-      
-      messageDisplay.textContent = `What is ${currentRow} × ${currentCol}?`;
-      messageDisplay.className = '';
-    }
-  });
+  table.addEventListener('click', handleCellSelection);
+  table.addEventListener('touchend', handleCellSelection);
 
-  // Handle guess submission
   submitGuess.addEventListener('click', checkGuess);
   guessInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
       checkGuess();
     }
   });
+
+  function showFeedback(isSuccess) {
+    if (isSuccess) {
+      const characterImg = document.createElement('img');
+      characterImg.src = getRandomCharacter();
+      messageDisplay.textContent = '';
+      messageDisplay.appendChild(characterImg);
+    } else {
+      messageDisplay.textContent = '❌';
+    }
+    messageDisplay.className = 'message-animation';
+    
+    if (isSuccess) {
+      // Play success sound
+      successSound.currentTime = 0;
+      successSound.play().catch(e => console.log('Audio play failed:', e));
+      
+      // Trigger confetti
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#FFD700', '#FFA500', '#FF69B4', '#87CEEB', '#98FB98']
+      });
+    } else {
+      // Play failure sound
+      failureSound.currentTime = 0;
+      failureSound.play().catch(e => console.log('Audio play failed:', e));
+    }
+
+    // Reset animation class after it completes
+    setTimeout(() => {
+      messageDisplay.className = '';
+      messageDisplay.textContent = '';
+    }, 1500);
+  }
 
   function checkGuess() {
     if (currentRow === null || currentCol === null) return;
@@ -182,29 +365,39 @@
     
     if (userGuess === correctAnswer) {
       score += correctAnswer;
-      messageDisplay.textContent = '✓ Correct! Keep going!';
-      messageDisplay.className = 'correct';
+      showFeedback(true);
     } else {
       score = 0;
-      messageDisplay.textContent = `✗ Wrong! ${currentRow} × ${currentCol} = ${correctAnswer}. Score reset!`;
-      messageDisplay.className = 'incorrect';
+      showFeedback(false);
     }
     
-    scoreDisplay.textContent = `Score: ${score}`;
+    scoreDisplay.textContent = score;
     
     // Reset for next guess
     guessInput.value = '';
-    guessInput.disabled = true;
-    submitGuess.disabled = true;
+    floatingInput.style.display = 'none';
     currentRow = null;
     currentCol = null;
     
-    // Clear highlight after a short delay
+    // Clear highlight after a delay
     setTimeout(() => {
       const allCells = table.querySelectorAll('td');
       allCells.forEach((cell) => cell.classList.remove('highlight'));
-    }, 1000);
+    }, 1500);
   }
+
+  // Hide floating input when clicking/touching outside
+  document.addEventListener('click', (e) => {
+    if (!floatingInput.contains(e.target) && 
+        !e.target.hasAttribute('data-row') && 
+        !e.target.hasAttribute('data-col')) {
+      floatingInput.style.display = 'none';
+      const allCells = table.querySelectorAll('td');
+      allCells.forEach((cell) => cell.classList.remove('highlight'));
+      currentRow = null;
+      currentCol = null;
+    }
+  });
 </script>
 
 </body>
