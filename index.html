@@ -405,34 +405,41 @@
   const isiOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
   const useWebAudio = isSafari || isiOS;
 
-  // Initialize Web Audio only for Safari/iOS
-  const audioContext = useWebAudio ? new (window.AudioContext || window.webkitAudioContext)() : null;
+  // Initialize Web Audio Context
+  let audioContext = null;
   let audioInitialized = false;
-  const audioBuffers = useWebAudio ? {
-    success: null,
-    failure: null,
-    applause: null
-  } : null;
+  let audioBuffers = {};
 
-  // Function to load and decode audio file (only for Safari/iOS)
+  // Function to ensure audio context is initialized
+  async function ensureAudioContext() {
+    if (!audioContext) {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioContext.state === 'suspended') {
+      await audioContext.resume();
+    }
+    return audioContext;
+  }
+
+  // Function to load and decode audio file
   async function loadAudio(url) {
-    if (!useWebAudio) return null;
     try {
+      const context = await ensureAudioContext();
       const response = await fetch(url);
       const arrayBuffer = await response.arrayBuffer();
-      return await audioContext.decodeAudioData(arrayBuffer);
+      return await context.decodeAudioData(arrayBuffer);
     } catch (error) {
       console.log('Error loading audio:', error);
       return null;
     }
   }
 
-  // Initialize audio (only for Safari/iOS)
+  // Initialize audio
   async function initializeAudio() {
-    if (!useWebAudio || audioInitialized) return;
+    if (audioInitialized) return;
     
     try {
-      await audioContext.resume();
+      await ensureAudioContext();
       audioBuffers.success = await loadAudio('audio/mixkit-game-success-alert-2039.wav');
       audioBuffers.failure = await loadAudio('audio/mixkit-fail-drum-and-xylophone-568.wav');
       audioBuffers.applause = await loadAudio('audio/mixkit-animated-small-group-applause-523.wav');
@@ -443,44 +450,51 @@
   }
 
   // Function to play audio
-  function playAudio(type) {
-    if (useWebAudio) {
-      // Web Audio API for Safari/iOS
-      const buffer = audioBuffers[type];
-      if (!buffer || audioContext.state !== 'running') return;
+  async function playAudio(type) {
+    if (!audioInitialized) {
+      await initializeAudio();
+    }
+
+    try {
+      const context = await ensureAudioContext();
       
-      try {
-        const source = audioContext.createBufferSource();
+      if (useWebAudio) {
+        const buffer = audioBuffers[type];
+        if (!buffer) return;
+        
+        const source = context.createBufferSource();
         source.buffer = buffer;
-        source.connect(audioContext.destination);
+        source.connect(context.destination);
         source.start(0);
-      } catch (error) {
-        console.log('Error playing audio:', error);
-      }
       } else {
-      // HTML5 Audio for other browsers
-      const audio = {
-        success: successSound,
-        failure: failureSound,
-        applause: applauseSound
-      }[type];
-      
-      if (audio) {
-        audio.currentTime = 0;
-        if (type === 'applause') {
-          audio.volume = 1;
+        const audio = {
+          success: successSound,
+          failure: failureSound,
+          applause: applauseSound
+        }[type];
+        
+        if (audio) {
+          audio.currentTime = 0;
+          if (type === 'applause') {
+            audio.volume = 1;
+          }
+          await audio.play();
         }
-        audio.play().catch(e => console.log('Audio play failed:', e));
       }
+    } catch (error) {
+      console.log('Error playing audio:', error);
     }
   }
 
-  // Initialize audio on first interaction for iOS
-  if (useWebAudio) {
-    document.addEventListener('touchstart', function() {
-      initializeAudio();
-    }, { once: true });
+  // Initialize audio on any user interaction
+  function initAudioOnInteraction() {
+    initializeAudio();
+    document.removeEventListener('touchstart', initAudioOnInteraction);
+    document.removeEventListener('click', initAudioOnInteraction);
   }
+
+  document.addEventListener('touchstart', initAudioOnInteraction);
+  document.addEventListener('click', initAudioOnInteraction);
 
   function showFeedback(isSuccess) {
     if (isSuccess) {
